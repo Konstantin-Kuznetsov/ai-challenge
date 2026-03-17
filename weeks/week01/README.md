@@ -10,12 +10,15 @@
 - [ ] Запустить `task_01_intro.py`
 - [ ] Запустить `task_02_yandexgpt_api.py`
 - [ ] Поэкспериментировать с `temperature`, `top_p`, `top_k`, `max_tokens`
+- [ ] Запустить `task_03_response_control.py`
+- [ ] Сравнить ответ без ограничений и с ограничениями формата/длины/завершения
 - [ ] Зафиксировать вывод и заметки
 
 ## Файлы недели
 
 - `task_01_intro.py` — стартовый скрипт.
 - `task_02_yandexgpt_api.py` — подключение к YandexGPT по API и параметры генерации.
+- `task_03_response_control.py` — сравнение ответа без контроля и с контролем формата.
 
 ## Примеры запуска
 
@@ -32,4 +35,22 @@ python3 weeks/week01/task_02_yandexgpt_api.py \
   --top-p 0.8 \
   --top-k 40 \
   --max-tokens 500
+```
+
+```bash
+python3 weeks/week01/task_03_response_control.py \
+  --prompt "Объясни, как работает метод градиентного спуска" \
+  --format-instruction "JSON с ключами summary и steps" \
+  --max-chars 450 \
+  --end-marker "<END>"
+```
+
+```bash
+# если хотите попробовать stop sequence через API
+python3 weeks/week01/task_03_response_control.py \
+  --prompt "Объясни, как работает метод градиентного спуска" \
+  --format-instruction "JSON с ключами summary и steps" \
+  --max-chars 450 \
+  --end-marker "<END>" \
+  --use-stop-sequence
 ```
