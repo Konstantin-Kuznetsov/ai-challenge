@@ -3,13 +3,14 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib import error, request
 
 
 DEFAULT_TASK = (
-    "Петя дал младшему брату половину запаса яблок и еще одно яблоко, "
-    "и у него не осталось ни одного яблока. Сколько яблок было у Пети?"
+    "У вас есть ограниченный бюджет и 3 недели до релиза AI-ассистента. "
+    "Нужно выбрать главный приоритет: точность ответов, скорость генерации "
+    "или стоимость инфраструктуры. Какой приоритет выбрать и почему?"
 )
 
 
@@ -69,8 +70,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--expected",
         type=str,
-        default="2",
-        help="Expected numeric answer for simple automatic validation.",
+        default="",
+        help="Optional expected answer fragment for automatic validation.",
     )
     return parser.parse_args()
 
@@ -143,10 +144,10 @@ def call_strategy(
     return extract_text(response)
 
 
-def likely_contains_answer(text: str, expected: str) -> bool:
+def likely_contains_answer(text: str, expected: str) -> Optional[bool]:
     expected_number = expected.strip()
     if not expected_number:
-        return False
+        return None
     if re.search(rf"\b{re.escape(expected_number)}\b", text):
         return True
     if expected_number == "2" and re.search(r"\bдва\b", text, flags=re.IGNORECASE):
@@ -154,6 +155,12 @@ def likely_contains_answer(text: str, expected: str) -> bool:
     if expected_number == "3" and re.search(r"\bтри\b", text, flags=re.IGNORECASE):
         return True
     return False
+
+
+def format_check(value: Optional[bool]) -> str:
+    if value is None:
+        return "n/a"
+    return "yes" if value else "no"
 
 
 def print_block(title: str, text: str) -> None:
@@ -288,7 +295,7 @@ def main() -> None:
     print_block("3b) Ответ по сгенерированному промпту", prompt_based_answer)
     print_block("4) Группа экспертов", experts_answer)
 
-    checks = {
+    checks: Dict[str, Optional[bool]] = {
         "direct": likely_contains_answer(direct_answer, args.expected),
         "step_by_step": likely_contains_answer(step_answer, args.expected),
         "prompt_generated": likely_contains_answer(prompt_based_answer, args.expected),
@@ -296,31 +303,31 @@ def main() -> None:
     }
 
     print("\n=== Сравнение ===")
-    print("Ожидаемый ответ:", args.expected)
+    print("Ожидаемый ответ:", args.expected or "<не задан>")
     print(json.dumps(checks, ensure_ascii=False, indent=2))
 
     rows_summary = [
         [
             "direct",
-            "yes" if checks["direct"] else "no",
+            format_check(checks["direct"]),
             str(len(direct_answer)),
             shorten(first_non_empty_line(direct_answer)),
         ],
         [
             "step_by_step",
-            "yes" if checks["step_by_step"] else "no",
+            format_check(checks["step_by_step"]),
             str(len(step_answer)),
             shorten(first_non_empty_line(step_answer)),
         ],
         [
             "prompt_generated",
-            "yes" if checks["prompt_generated"] else "no",
+            format_check(checks["prompt_generated"]),
             str(len(prompt_based_answer)),
             shorten(first_non_empty_line(prompt_based_answer)),
         ],
         [
             "experts",
-            "yes" if checks["experts"] else "no",
+            format_check(checks["experts"]),
             str(len(experts_answer)),
             shorten(first_non_empty_line(experts_answer)),
         ],
