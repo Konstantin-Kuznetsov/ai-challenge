@@ -12,6 +12,8 @@
 - [ ] Поэкспериментировать с `temperature`, `top_p`, `top_k`, `max_tokens`
 - [ ] Запустить `task_03_response_control.py`
 - [ ] Сравнить ответ без ограничений и с ограничениями формата/длины/завершения
+- [ ] Запустить `task_04_reasoning_strategies.py`
+- [ ] Сравнить 4 подхода к рассуждению на одной задаче
 - [ ] Зафиксировать вывод и заметки
 
 ## Файлы недели
@@ -19,6 +21,7 @@
 - `task_01_intro.py` — стартовый скрипт.
 - `task_02_yandexgpt_api.py` — подключение к YandexGPT по API и параметры генерации.
 - `task_03_response_control.py` — сравнение ответа без контроля и с контролем формата.
+- `task_04_reasoning_strategies.py` — сравнение 4 стратегий рассуждения на одной задаче.
 
 ## Примеры запуска
 
@@ -53,4 +56,10 @@ python3 weeks/week01/task_03_response_control.py \
   --max-chars 450 \
   --end-marker "<END>" \
   --use-stop-sequence
+```
+
+```bash
+python3 weeks/week01/task_04_reasoning_strategies.py \
+  --task "Петя дал младшему брату половину запаса яблок и еще одно яблоко, и у него не осталось ни одного яблока. Сколько яблок было у Пети?" \
+  --expected 2
 ```
