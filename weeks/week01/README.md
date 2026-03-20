@@ -16,6 +16,8 @@
 - [ ] Сравнить 4 подхода к рассуждению на одной задаче
 - [ ] Запустить `task_05_temperature_comparison.py`
 - [ ] Сравнить ответы при temperature 0.0 / 0.7 / 1.0
+- [ ] Запустить `task_06_model_versions.py`
+- [ ] Сравнить версии моделей по качеству, скорости и ресурсоемкости
 - [ ] Зафиксировать вывод и заметки
 
 ## Файлы недели
@@ -25,6 +27,7 @@
 - `task_03_response_control.py` — сравнение ответа без контроля и с контролем формата.
 - `task_04_reasoning_strategies.py` — сравнение 4 стратегий рассуждения на одной задаче.
 - `task_05_temperature_comparison.py` — сравнение ответов при разных temperature.
+- `task_06_model_versions.py` — сравнение lite и non-lite версии модели.
 
 ## Примеры запуска
 
@@ -76,4 +79,13 @@ python3 weeks/week01/task_04_reasoning_strategies.py \
 ```bash
 python3 weeks/week01/task_05_temperature_comparison.py \
   --prompt "Ты продакт-менеджер AI-стартапа. За 2 недели и с бюджетом 100 000 рублей нужно повысить удержание пользователей. Предложи 3 разные гипотезы улучшения продукта, для каждой укажи: ожидаемый эффект, риск и простую метрику проверки."
+```
+
+```bash
+python3 weeks/week01/task_06_model_versions.py \
+  --prompt "Ты продуктовый аналитик. Предложи план из 5 шагов, как за 2 недели увеличить retention в мобильном приложении. Для каждого шага добавь: ожидаемый эффект, риск и метрику." \
+  --model-weak yandexgpt-lite \
+  --model-medium yandexgpt \
+  --price-input-per-1k 0.0 \
+  --price-output-per-1k 0.0
 ```
