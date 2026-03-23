@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Week 02 / First Agent</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #f5f5f5;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .meta {
+        color: #555;
+        font-size: 14px;
+      }
+      .chat {
+        min-height: 280px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .msg {
+        padding: 10px 12px;
+        border-radius: 10px;
+        max-width: 85%;
+        white-space: pre-wrap;
+      }
+      .user {
+        align-self: flex-end;
+        background: #d7ecff;
+      }
+      .assistant {
+        align-self: flex-start;
+        background: #eaeaea;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        font-family: inherit;
+      }
+      button {
+        margin-top: 10px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        background: #1f6feb;
+        color: #fff;
+        cursor: pointer;
+      }
+      .error {
+        color: #b00020;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+      .toggle-button {
+        margin-top: 8px;
+        background: #6c757d;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h2>Week 02 / Первый агент (Flask)</h2>
+        <p class="meta">
+          Модель: <b>{{ model }}</b><br />
+          Показываются последние <b>{{ max_history_messages }}</b> сообщений
+          (скользящее окно: старые вытесняются автоматически).
+        </p>
+        <p class="meta">
+          Важно: история хранится только в UI. Агент сейчас отправляет в LLM
+          только текущий запрос и system prompt, поэтому полноценная контекстная
+          память диалога не реализована.
+        </p>
+        <p class="meta">
+          Ошибки API/сети обрабатываются: приложение не падает, текст ошибки
+          возвращается ответом агента в чат.
+        </p>
+        <p class="meta">
+          Режим API ключа:
+          <b>{{ "сломанный (для демонстрации ошибки)" if api_key_broken else "рабочий (из env)" }}</b>
+        </p>
+        <form method="post" action="/toggle-api-key">
+          <button class="toggle-button" type="submit">
+            {{ "Вернуть рабочий API ключ" if api_key_broken else "Сломать API ключ в UI" }}
+          </button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Чат</h3>
+        <div class="chat">
+          {% if history %}
+            {% for item in history %}
+              <div class="msg {{ item.role }}">
+                <b>{{ "Вы" if item.role == "user" else "Агент" }}:</b>
+                {{ item.content }}
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="meta">История пуста. Отправьте первый запрос.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Новый запрос</h3>
+        <form method="post" action="/ask">
+          <label for="system_prompt"><b>System prompt агента</b></label>
+          <textarea id="system_prompt" name="system_prompt" rows="3">{{ system_prompt }}</textarea>
+
+          <label for="message"><b>Сообщение пользователя</b></label>
+          <textarea id="message" name="message" rows="4" placeholder="Введите запрос..." required></textarea>
+
+          <button type="submit">Отправить</button>
+          {% if error_message %}
+            <div class="error">{{ error_message }}</div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </body>
+  </html>

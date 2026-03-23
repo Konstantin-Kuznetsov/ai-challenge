@@ -7,4 +7,4 @@ name = "ai-challenge"
 version = "0.1.0"
 description = "Multi-week AI learning project in Python"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["flask"]
