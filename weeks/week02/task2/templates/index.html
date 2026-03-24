@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Week 02 / Task 2 Persistent Agent</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 16px;
+        background: #e9edf2;
+      }
+      .container {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .meta {
+        color: #555;
+        font-size: 14px;
+      }
+      .chat {
+        min-height: 280px;
+        max-height: 56vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: #d7e3ef;
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .msg {
+        padding: 7px 10px;
+        border-radius: 10px;
+        max-width: 78%;
+        white-space: pre-wrap;
+        line-height: 1.35;
+        font-size: 14px;
+        position: relative;
+      }
+      .user {
+        align-self: flex-end;
+        background: #d2f8c6;
+        border-bottom-right-radius: 3px;
+      }
+      .assistant {
+        align-self: flex-start;
+        background: #ffffff;
+        border-bottom-left-radius: 3px;
+      }
+      .user::after {
+        content: "";
+        position: absolute;
+        right: -5px;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border-left: 6px solid #d2f8c6;
+        border-top: 6px solid transparent;
+      }
+      .assistant::after {
+        content: "";
+        position: absolute;
+        left: -5px;
+        bottom: 0;
+        width: 0;
+        height: 0;
+        border-right: 6px solid #ffffff;
+        border-top: 6px solid transparent;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        padding: 10px;
+        font-family: inherit;
+      }
+      button {
+        margin-top: 10px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        background: #1f6feb;
+        color: #fff;
+        cursor: pointer;
+      }
+      .error {
+        color: #b00020;
+        font-size: 14px;
+        margin-top: 8px;
+      }
+      .toggle-button {
+        margin-top: 8px;
+        background: #6c757d;
+      }
+      .clear-button {
+        margin-top: 8px;
+        background: #b00020;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .typing {
+        display: inline-flex;
+        gap: 4px;
+        margin-left: 6px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #666;
+        animation: bounce 1s infinite ease-in-out;
+      }
+      .dot:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      .dot:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      @keyframes bounce {
+        0%, 80%, 100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        40% {
+          transform: translateY(-4px);
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h2>Week 02 / Task 2: Агент с сохранением контекста</h2>
+        <p class="meta">
+          Модель: <b>{{ model }}</b><br />
+          Храним последние <b>{{ max_history_messages }}</b> сообщений
+          (скользящее окно).
+        </p>
+        <p class="meta">
+          История сохраняется в JSON: <b>{{ history_file }}</b>.
+          При перезапуске приложения история загружается обратно.
+        </p>
+        <p class="meta">
+          Агент отправляет в LLM system prompt + восстановленную историю +
+          текущий запрос. Диалог продолжается как после паузы.
+        </p>
+        <p class="meta">
+          Режим API ключа:
+          <b>{{ "сломанный (для демонстрации ошибки)" if api_key_broken else "рабочий (из env)" }}</b>
+        </p>
+        <div class="toolbar">
+          <form method="post" action="/toggle-api-key">
+            <button class="toggle-button" type="submit">
+              {{ "Вернуть рабочий API ключ" if api_key_broken else "Сломать API ключ в UI" }}
+            </button>
+          </form>
+          <form method="post" action="/clear-history">
+            <button class="clear-button" type="submit">Очистить историю чата</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Чат</h3>
+        <div class="chat" id="chat">
+          {% if history %}
+            {% for item in history %}
+              <div class="msg {{ item.role }}">
+                {{ item.content }}
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="meta">История пуста. Отправьте первый запрос.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Новый запрос</h3>
+        <form method="post" action="/ask" id="chat-form">
+          <label for="system_prompt"><b>System prompt агента</b></label>
+          <textarea id="system_prompt" name="system_prompt" rows="3">{{ system_prompt }}</textarea>
+
+          <label for="message"><b>Сообщение пользователя</b></label>
+          <textarea id="message" name="message" rows="4" placeholder="Введите запрос..." required></textarea>
+
+          <button type="submit">Отправить</button>
+          {% if error_message %}
+            <div class="error">{{ error_message }}</div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("chat-form");
+      const chat = document.getElementById("chat");
+      const messageInput = document.getElementById("message");
+      const systemPromptInput = document.getElementById("system_prompt");
+      let typingNode = null;
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function renderHistory(history) {
+        if (!history || history.length === 0) {
+          chat.innerHTML = '<p class="meta">История пуста. Отправьте первый запрос.</p>';
+          return;
+        }
+        chat.innerHTML = history
+          .map((item) => {
+            const author = item.role === "user" ? "Вы" : "Агент";
+            return `
+              <div class="msg ${item.role}">
+                <b>${author}:</b>
+                ${escapeHtml(item.content)}
+              </div>
+            `;
+          })
+          .join("");
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function showTyping() {
+        const wrapper = document.createElement("div");
+        wrapper.className = "msg assistant";
+        wrapper.id = "typing-indicator";
+        wrapper.innerHTML = `
+          <b>Агент:</b>
+          <span class="typing">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </span>
+        `;
+        chat.appendChild(wrapper);
+        typingNode = wrapper;
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function hideTyping() {
+        if (typingNode) {
+          typingNode.remove();
+          typingNode = null;
+        }
+      }
+
+      async function submitAjax() {
+        const message = messageInput.value.trim();
+        const systemPrompt = systemPromptInput.value.trim();
+        if (!message) return;
+
+        const optimisticHistory = [];
+        chat.querySelectorAll(".msg").forEach((node) => {
+          const role = node.classList.contains("user") ? "user" : "assistant";
+          const content = node.textContent.replace(/^Вы:\s*|^Агент:\s*/, "").trim();
+          optimisticHistory.push({ role, content });
+        });
+        optimisticHistory.push({ role: "user", content: message });
+        renderHistory(optimisticHistory);
+
+        messageInput.value = "";
+        showTyping();
+
+        const body = new URLSearchParams({
+          message,
+          system_prompt: systemPrompt,
+        });
+
+        try {
+          const response = await fetch("/ask-json", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body,
+          });
+          const data = await response.json();
+          hideTyping();
+
+          if (!response.ok || !data.ok) {
+            optimisticHistory.push({
+              role: "assistant",
+              content: data.error_message || "Не удалось получить ответ от агента.",
+            });
+            renderHistory(optimisticHistory);
+            return;
+          }
+          renderHistory(data.history || optimisticHistory);
+          systemPromptInput.value = data.system_prompt || systemPrompt;
+        } catch (err) {
+          hideTyping();
+          optimisticHistory.push({
+            role: "assistant",
+            content: "Network error: не удалось отправить запрос.",
+          });
+          renderHistory(optimisticHistory);
+        }
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        submitAjax();
+      });
+
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          submitAjax();
+        }
+      });
+    </script>
+  </body>
+  </html>
