@@ -14,6 +14,9 @@
 - [ ] Task 2: начать диалог и отправить 2-3 сообщения
 - [ ] Task 2: перезапустить приложение
 - [ ] Task 2: продолжить диалог и проверить, что контекст восстановился
+- [ ] Task 3: запустить `task3/task_03_flask_agent_tokens.py`
+- [ ] Task 3: сравнить короткий и длинный диалог по токенам
+- [ ] Task 3: упереться в лимит токенов диалога и проверить обработку переполнения
 - [ ] Зафиксировать вывод и заметки
 
 ## Файлы недели
@@ -26,6 +29,12 @@
 - `task2/task_02_flask_agent_persistent.py` — Flask-приложение с восстановлением контекста.
 - `task2/templates/index.html` — UI для persistent-агента.
 - `task2/chat_history.json` — файл истории между запусками.
+- `task3/agent.py` — агент с возвратом usage-токенов API.
+- `task3/storage.py` — хранение истории и метрик токенов.
+- `task3/task_03_flask_agent_tokens.py` — Flask-чат с лимитом токенов и графиком.
+- `task3/templates/index.html` — split UI: чат + график токенов/стоимости.
+- `task3/chat_history.json` — история сообщений для task3.
+- `task3/metrics_history.json` — история токенов/стоимости по turn.
 
 ## Запуск
 
@@ -46,6 +55,16 @@ python3 weeks/week02/task2/task_02_flask_agent_persistent.py
 После запуска откройте:
 
 - http://127.0.0.1:5001
+
+### Task 3
+
+```bash
+python3 weeks/week02/task3/task_03_flask_agent_tokens.py
+```
+
+После запуска откройте:
+
+- http://127.0.0.1:5002
 
 ## Требования к окружению
 
