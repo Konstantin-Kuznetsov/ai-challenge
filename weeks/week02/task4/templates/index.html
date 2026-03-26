@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Week 02 / Task 4 Context Compression</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #e9edf2; }
+      .container { max-width: 1280px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+      .meta { color: #555; font-size: 13px; line-height: 1.35; }
+      .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+      button { margin-top: 8px; padding: 10px 16px; border: none; border-radius: 8px; background: #1f6feb; color: #fff; cursor: pointer; }
+      .toggle-button { background: #6c757d; }
+      .clear-button { background: #b00020; }
+      .layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; align-items: start; }
+      .chats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .chat-card { background: #f8fafc; border: 1px solid #dfe5eb; border-radius: 10px; padding: 8px; }
+      .chat-title { font-size: 13px; color: #333; margin: 0 0 6px 0; }
+      .chat { min-height: 360px; max-height: 58vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #d7e3ef; border-radius: 10px; padding: 10px; }
+      .msg { padding: 7px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; line-height: 1.35; font-size: 14px; position: relative; }
+      .user { align-self: flex-end; background: #d2f8c6; border-bottom-right-radius: 3px; }
+      .assistant { align-self: flex-start; background: #fff; border-bottom-left-radius: 3px; }
+      .user::after { content: ""; position: absolute; right: -5px; bottom: 0; border-left: 6px solid #d2f8c6; border-top: 6px solid transparent; }
+      .assistant::after { content: ""; position: absolute; left: -5px; bottom: 0; border-right: 6px solid #fff; border-top: 6px solid transparent; }
+      textarea { width: 100%; box-sizing: border-box; border-radius: 8px; border: 1px solid #ccc; padding: 10px; font-family: inherit; }
+      .error { color: #b00020; font-size: 14px; margin-top: 8px; }
+      .typing { display: inline-flex; gap: 4px; }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: #666; animation: bounce 1s infinite ease-in-out; }
+      .dot:nth-child(2) { animation-delay: .15s; }
+      .dot:nth-child(3) { animation-delay: .3s; }
+      @keyframes bounce { 0%,80%,100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
+      .mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+      .mode-card { background: #f4f6f8; border-radius: 8px; padding: 8px; font-size: 12px; }
+      .chart-box { background: linear-gradient(180deg,#f7f8fa 0%,#f3f5f8 100%); border-radius: 10px; padding: 10px; border: 1px solid #e5e9ef; }
+      #tokens-chart { width: 100%; height: 260px; display: block; background: #fff; border-radius: 8px; border: 1px solid #e3e3e3; }
+      .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; color: #555; }
+      .legend span { display: inline-flex; align-items: center; gap: 6px; }
+      .line { width: 14px; height: 2px; display: inline-block; }
+      .line-full { background: #ef6c00; }
+      .line-compressed { background: #1f6feb; }
+      .line-cost-full { background: #f4b35e; }
+      .line-cost-compressed { background: #5fa8ff; }
+      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h2>Week 02 / Task 4: Управление контекстом (сжатие истории)</h2>
+        <p class="meta">
+          Модель: <b>{{ model }}</b>. История full: <b>{{ history_full_file }}</b>.
+          История compressed: <b>{{ history_compressed_file }}</b>. Метрики: <b>{{ metrics_file }}</b>.
+          Summary state: <b>{{ summary_state_file }}</b>.
+        </p>
+        <p class="meta">
+          Сжатие: храним последние <b>{{ recent_messages_n }}</b> сообщений как есть, остальное сворачиваем
+          батчами по <b>{{ summary_batch_size }}</b> сообщений в summary.<br />
+          Сейчас: summary chars=<b id="summary-chars">{{ summary_chars }}</b>, summarized messages=<b id="summarized-count">{{ summarized_count }}</b>.
+        </p>
+        <div class="toolbar">
+          <form method="post" action="/toggle-api-key">
+            <button class="toggle-button" type="submit">
+              {{ "Вернуть рабочий API ключ" if api_key_broken else "Сломать API ключ в UI" }}
+            </button>
+          </form>
+          <form method="post" action="/clear-history">
+            <button class="clear-button" type="submit">Очистить диалог, summary и кэш токенов</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="card">
+          <h3>Один запрос -> два чата</h3>
+          <div class="chats-grid">
+            <div class="chat-card">
+              <h4 class="chat-title">Без сжатия (full)</h4>
+              <div class="chat" id="chat-full">
+                {% if history_full %}
+                  {% for item in history_full %}
+                    <div class="msg {{ item.role }}">{{ item.content }}</div>
+                  {% endfor %}
+                {% else %}
+                  <p class="meta">История пуста. Отправьте первый запрос.</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="chat-card">
+              <h4 class="chat-title">Со сжатием (summary + последние N)</h4>
+              <div class="chat" id="chat-compressed">
+                {% if history_compressed %}
+                  {% for item in history_compressed %}
+                    <div class="msg {{ item.role }}">{{ item.content }}</div>
+                  {% endfor %}
+                {% else %}
+                  <p class="meta">История пуста. Отправьте первый запрос.</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Сравнение токенов/стоимости</h3>
+          <div class="mode-cards">
+            <div class="mode-card">
+              <b>Без сжатия (full)</b><br />
+              total tokens: <b id="full-total-tokens">{{ mode_totals.full.total_tokens }}</b><br />
+              total cost: <b id="full-total-cost">{{ "%.6f"|format(mode_totals.full.total_cost_usd) }}</b> USD
+            </div>
+            <div class="mode-card">
+              <b>Со сжатием (compressed)</b><br />
+              total tokens: <b id="compressed-total-tokens">{{ mode_totals.compressed.total_tokens }}</b><br />
+              total cost: <b id="compressed-total-cost">{{ "%.6f"|format(mode_totals.compressed.total_cost_usd) }}</b> USD
+            </div>
+          </div>
+          <div class="chart-box">
+            <canvas id="tokens-chart" width="480" height="260"></canvas>
+            <div class="legend">
+              <span><i class="line line-full"></i>Токены (full)</span>
+              <span><i class="line line-compressed"></i>Токены (compressed)</span>
+              <span><i class="line line-cost-full"></i>Стоимость (full, scaled)</span>
+              <span><i class="line line-cost-compressed"></i>Стоимость (compressed, scaled)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Новый запрос</h3>
+        <form method="post" action="/ask" id="chat-form">
+          <label for="system_prompt"><b>System prompt агента</b></label>
+          <textarea id="system_prompt" name="system_prompt" rows="3">{{ system_prompt }}</textarea>
+
+          <label for="message"><b>Сообщение пользователя</b></label>
+          <textarea id="message" name="message" rows="4" placeholder="Введите запрос..." required></textarea>
+          <button type="submit">Отправить</button>
+          {% if error_message %}<div class="error">{{ error_message }}</div>{% endif %}
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("chat-form");
+      const chatFull = document.getElementById("chat-full");
+      const chatCompressed = document.getElementById("chat-compressed");
+      const messageInput = document.getElementById("message");
+      const systemPromptInput = document.getElementById("system_prompt");
+      const chartCanvas = document.getElementById("tokens-chart");
+      const chartCtx = chartCanvas.getContext("2d");
+      const fullTotalTokensEl = document.getElementById("full-total-tokens");
+      const fullTotalCostEl = document.getElementById("full-total-cost");
+      const compressedTotalTokensEl = document.getElementById("compressed-total-tokens");
+      const compressedTotalCostEl = document.getElementById("compressed-total-cost");
+      const summaryCharsEl = document.getElementById("summary-chars");
+      const summarizedCountEl = document.getElementById("summarized-count");
+      let metricsHistory = {{ metrics_history | tojson }};
+      let typingNodeFull = null;
+      let typingNodeCompressed = null;
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function renderHistory(panel, history) {
+        if (!history || history.length === 0) {
+          panel.innerHTML = '<p class="meta">История пуста. Отправьте первый запрос.</p>';
+          return;
+        }
+        panel.innerHTML = history
+          .map((item) => `<div class="msg ${item.role}">${escapeHtml(item.content)}</div>`)
+          .join("");
+        panel.scrollTop = panel.scrollHeight;
+      }
+
+      function showTyping() {
+        const wrapper = document.createElement("div");
+        wrapper.className = "msg assistant";
+        wrapper.innerHTML = `
+          <span class="typing">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </span>
+        `;
+        const wrapper2 = wrapper.cloneNode(true);
+        chatFull.appendChild(wrapper);
+        chatCompressed.appendChild(wrapper2);
+        typingNodeFull = wrapper;
+        typingNodeCompressed = wrapper2;
+        chatFull.scrollTop = chatFull.scrollHeight;
+        chatCompressed.scrollTop = chatCompressed.scrollHeight;
+      }
+
+      function hideTyping() {
+        if (typingNodeFull) typingNodeFull.remove();
+        if (typingNodeCompressed) typingNodeCompressed.remove();
+        typingNodeFull = null;
+        typingNodeCompressed = null;
+      }
+
+      function drawChart() {
+        const width = chartCanvas.width;
+        const height = chartCanvas.height;
+        const left = 44, right = width - 12, top = 12, bottom = height - 30;
+        const plotW = right - left, plotH = bottom - top;
+        chartCtx.clearRect(0, 0, width, height);
+        chartCtx.fillStyle = "#fbfcfe";
+        chartCtx.fillRect(left, top, plotW, plotH);
+        chartCtx.strokeStyle = "#d9dde3";
+        chartCtx.strokeRect(left, top, plotW, plotH);
+
+        if (!metricsHistory || metricsHistory.length === 0) {
+          chartCtx.fillStyle = "#6b7280";
+          chartCtx.font = "12px Arial";
+          chartCtx.fillText("Нет данных для графика", left + 8, top + 18);
+          return;
+        }
+
+        const fullTokenCum = [];
+        const compressedTokenCum = [];
+        const fullCostCum = [];
+        const compressedCostCum = [];
+        let ft = 0, ct = 0, fc = 0, cc = 0;
+        metricsHistory.forEach((m) => {
+          ft = Number(m.full_total_tokens || ft);
+          ct = Number(m.compressed_total_tokens || ct);
+          fc = Number(m.full_total_cost_usd || fc);
+          cc = Number(m.compressed_total_cost_usd || cc);
+          fullTokenCum.push(ft);
+          compressedTokenCum.push(ct);
+          fullCostCum.push(fc);
+          compressedCostCum.push(cc);
+        });
+        const maxToken = Math.max(...fullTokenCum, ...compressedTokenCum, 1);
+        const maxCost = Math.max(...fullCostCum, ...compressedCostCum, 0.000001);
+        const count = metricsHistory.length;
+        const xFor = (i) => left + ((i + 0.5) / count) * plotW;
+        const yToken = (v) => bottom - (v / maxToken) * plotH;
+        const yCost = (v) => bottom - (v / maxCost) * plotH;
+
+        chartCtx.strokeStyle = "#edf1f5";
+        for (let i = 1; i <= 4; i += 1) {
+          const y = top + (i / 5) * plotH;
+          chartCtx.beginPath(); chartCtx.moveTo(left, y); chartCtx.lineTo(right, y); chartCtx.stroke();
+        }
+
+        function drawLine(values, color) {
+          chartCtx.strokeStyle = color;
+          chartCtx.lineWidth = 2;
+          chartCtx.beginPath();
+          values.forEach((v, i) => {
+            const x = xFor(i), y = color.includes("5e") ? yCost(v) : yToken(v);
+            if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+          });
+          chartCtx.stroke();
+        }
+        drawLine(fullTokenCum, "#ef6c00");
+        drawLine(compressedTokenCum, "#1f6feb");
+        drawLine(fullCostCum, "#f4b35e");
+        drawLine(compressedCostCum, "#5fa8ff");
+
+        chartCtx.fillStyle = "#5f6771";
+        chartCtx.font = "11px Arial";
+        chartCtx.fillText("1", left - 4, bottom + 16);
+        chartCtx.fillText(String(count), right - 8, bottom + 16);
+      }
+
+      function updateTotals(modeTotals) {
+        fullTotalTokensEl.textContent = String(modeTotals.full.total_tokens || 0);
+        fullTotalCostEl.textContent = Number(modeTotals.full.total_cost_usd || 0).toFixed(6);
+        compressedTotalTokensEl.textContent = String(modeTotals.compressed.total_tokens || 0);
+        compressedTotalCostEl.textContent = Number(modeTotals.compressed.total_cost_usd || 0).toFixed(6);
+      }
+
+      async function submitAjax() {
+        const message = messageInput.value.trim();
+        const systemPrompt = systemPromptInput.value.trim();
+        if (!message) return;
+
+        const optimisticHistoryFull = [];
+        const optimisticHistoryCompressed = [];
+        chatFull.querySelectorAll(".msg").forEach((node) => {
+          const role = node.classList.contains("user") ? "user" : "assistant";
+          optimisticHistoryFull.push({ role, content: node.textContent.trim() });
+        });
+        chatCompressed.querySelectorAll(".msg").forEach((node) => {
+          const role = node.classList.contains("user") ? "user" : "assistant";
+          optimisticHistoryCompressed.push({ role, content: node.textContent.trim() });
+        });
+        optimisticHistoryFull.push({ role: "user", content: message });
+        optimisticHistoryCompressed.push({ role: "user", content: message });
+        renderHistory(chatFull, optimisticHistoryFull);
+        renderHistory(chatCompressed, optimisticHistoryCompressed);
+
+        messageInput.value = "";
+        showTyping();
+
+        const body = new URLSearchParams({
+          message,
+          system_prompt: systemPrompt,
+        });
+        try {
+          const response = await fetch("/ask-json", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body,
+          });
+          const data = await response.json();
+          hideTyping();
+          if (!response.ok || !data.ok) {
+            optimisticHistoryFull.push({ role: "assistant", content: data.error_message || "Не удалось получить ответ." });
+            optimisticHistoryCompressed.push({ role: "assistant", content: data.error_message || "Не удалось получить ответ." });
+            renderHistory(chatFull, optimisticHistoryFull);
+            renderHistory(chatCompressed, optimisticHistoryCompressed);
+            return;
+          }
+          renderHistory(chatFull, data.history_full || optimisticHistoryFull);
+          renderHistory(chatCompressed, data.history_compressed || optimisticHistoryCompressed);
+          metricsHistory = data.metrics_history || metricsHistory;
+          updateTotals(data.mode_totals || { full: {}, compressed: {} });
+          summaryCharsEl.textContent = String(data.summary_chars || 0);
+          summarizedCountEl.textContent = String(data.summarized_count || 0);
+          drawChart();
+        } catch (err) {
+          hideTyping();
+          optimisticHistoryFull.push({ role: "assistant", content: "Network error: не удалось отправить запрос." });
+          optimisticHistoryCompressed.push({ role: "assistant", content: "Network error: не удалось отправить запрос." });
+          renderHistory(chatFull, optimisticHistoryFull);
+          renderHistory(chatCompressed, optimisticHistoryCompressed);
+        }
+      }
+
+      form.addEventListener("submit", (event) => { event.preventDefault(); submitAjax(); });
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitAjax(); }
+      });
+      drawChart();
+    </script>
+  </body>
+</html>
