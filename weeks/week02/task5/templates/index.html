@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Week 02 / Task 5 Context Strategies</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; padding: 16px; background: #e9edf2; }
+      .container { max-width: 1180px; margin: 0 auto; }
+      .card { background: #fff; border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+      .meta { color: #555; font-size: 13px; line-height: 1.35; }
+      .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+      button { margin-top: 8px; padding: 10px 16px; border: none; border-radius: 8px; background: #1f6feb; color: #fff; cursor: pointer; }
+      .secondary { background: #6c757d; }
+      .danger { background: #b00020; }
+      .layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; align-items: start; }
+      .chat { min-height: 360px; max-height: 58vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #d7e3ef; border-radius: 10px; padding: 10px; }
+      .msg { padding: 7px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; line-height: 1.35; font-size: 14px; position: relative; }
+      .user { align-self: flex-end; background: #d2f8c6; border-bottom-right-radius: 3px; }
+      .assistant { align-self: flex-start; background: #fff; border-bottom-left-radius: 3px; }
+      .user::after { content: ""; position: absolute; right: -5px; bottom: 0; border-left: 6px solid #d2f8c6; border-top: 6px solid transparent; }
+      .assistant::after { content: ""; position: absolute; left: -5px; bottom: 0; border-right: 6px solid #fff; border-top: 6px solid transparent; }
+      textarea, select { width: 100%; box-sizing: border-box; border-radius: 8px; border: 1px solid #ccc; padding: 10px; font-family: inherit; background: #fff; }
+      .error { color: #b00020; font-size: 14px; margin-top: 8px; }
+      .typing { display: inline-flex; gap: 4px; }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: #666; animation: bounce 1s infinite ease-in-out; }
+      .dot:nth-child(2) { animation-delay: .15s; }
+      .dot:nth-child(3) { animation-delay: .3s; }
+      @keyframes bounce { 0%,80%,100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
+      .stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+      .stat-box { background: #f4f6f8; border-radius: 8px; padding: 8px; font-size: 12px; }
+      .chart-box { background: linear-gradient(180deg,#f7f8fa 0%,#f3f5f8 100%); border-radius: 10px; padding: 10px; border: 1px solid #e5e9ef; margin-top: 8px; }
+      #strategies-chart { width: 100%; height: 280px; display: block; background: #fff; border-radius: 8px; border: 1px solid #e3e3e3; }
+      .legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; margin-top: 8px; color: #555; }
+      .legend span { display: inline-flex; align-items: center; gap: 6px; }
+      .line { width: 14px; height: 2px; display: inline-block; }
+      .sliding { background: #1f6feb; }
+      .facts { background: #ef6c00; }
+      .branching { background: #7b2cbf; }
+      .sliding-cost { background: #8cc0ff; }
+      .facts-cost { background: #f5bd82; }
+      .branching-cost { background: #c5a3ea; }
+      .branches { margin-top: 8px; padding: 8px; border: 1px solid #d9dee5; border-radius: 8px; background: #fafbfc; }
+      .branches-row { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end; }
+      .note { font-size: 12px; color: #666; margin-top: 6px; }
+      .compare-box { margin-top: 8px; padding: 10px; border: 1px solid #d9dee5; border-radius: 8px; background: #fafbfc; }
+      .compare-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+      .compare-item { background: #fff; border: 1px solid #e3e7ed; border-radius: 8px; padding: 8px; font-size: 13px; white-space: pre-wrap; }
+      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h2>Week 02 / Task 5: Стратегии контекста без summary</h2>
+        <p class="meta">
+          Модель: <b>{{ model }}</b>. Window N=<b>{{ window_messages_n }}</b>.<br />
+          State: <b>{{ state_file }}</b>. Metrics: <b>{{ metrics_file }}</b>.
+        </p>
+        <p class="meta">
+          Sticky facts count: <b id="facts-count">{{ facts_count }}</b>.
+          Active branch: <b id="active-branch">{{ active_branch }}</b>.
+          Checkpoint: <b id="checkpoint">{{ checkpoint if checkpoint is not none else "none" }}</b>.
+        </p>
+        <div class="toolbar">
+          <form method="post" action="/toggle-api-key">
+            <input type="hidden" name="strategy" value="{{ selected_strategy }}" />
+            <button class="secondary" type="submit">
+              {{ "Вернуть рабочий API ключ" if api_key_broken else "Сломать API ключ в UI" }}
+            </button>
+          </form>
+          <form method="post" action="/clear-all">
+            <input type="hidden" name="strategy" value="{{ selected_strategy }}" />
+            <button class="danger" type="submit">Очистить все стратегии и метрики</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="card">
+          <h3>Чат (активная стратегия: <span id="strategy-label">{{ selected_strategy }}</span>)</h3>
+          <div class="chat" id="chat">
+            {% if history %}
+              {% for item in history %}
+                <div class="msg {{ item.role }}">{{ item.content }}</div>
+              {% endfor %}
+            {% else %}
+              <p class="meta">История пуста. Отправьте первый запрос.</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Сравнение стратегий</h3>
+          <div class="stats-grid">
+            <div class="stat-box"><b>Sliding</b><br />tokens: <span id="sliding-total">{{ mode_totals.sliding.total_tokens }}</span><br />cost: <span id="sliding-cost">{{ "%.6f"|format(mode_totals.sliding.total_cost_usd) }}</span></div>
+            <div class="stat-box"><b>Facts</b><br />tokens: <span id="facts-total">{{ mode_totals.facts.total_tokens }}</span><br />cost: <span id="facts-cost">{{ "%.6f"|format(mode_totals.facts.total_cost_usd) }}</span></div>
+            <div class="stat-box"><b>Branching</b><br />tokens: <span id="branching-total">{{ mode_totals.branching.total_tokens }}</span><br />cost: <span id="branching-cost">{{ "%.6f"|format(mode_totals.branching.total_cost_usd) }}</span></div>
+          </div>
+          <div class="chart-box">
+            <canvas id="strategies-chart" width="470" height="280"></canvas>
+            <div class="legend">
+              <span><i class="line sliding"></i>Sliding tokens</span>
+              <span><i class="line facts"></i>Facts tokens</span>
+              <span><i class="line branching"></i>Branching tokens</span>
+              <span><i class="line sliding-cost"></i>Sliding cost</span>
+              <span><i class="line facts-cost"></i>Facts cost</span>
+              <span><i class="line branching-cost"></i>Branching cost</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Новый запрос</h3>
+        <form method="post" action="/ask" id="chat-form">
+          <label for="strategy"><b>Стратегия контекста</b></label>
+          <select id="strategy" name="strategy">
+            <option value="sliding" {% if selected_strategy == "sliding" %}selected{% endif %}>Sliding Window</option>
+            <option value="facts" {% if selected_strategy == "facts" %}selected{% endif %}>Sticky Facts / Key-Value Memory</option>
+            <option value="branching" {% if selected_strategy == "branching" %}selected{% endif %}>Branching</option>
+            <option value="compare_all">Compare All (1 запрос => 3 стратегии)</option>
+          </select>
+          <label for="system_prompt"><b>System prompt агента</b></label>
+          <textarea id="system_prompt" name="system_prompt" rows="3">{{ system_prompt }}</textarea>
+          <label for="message"><b>Сообщение пользователя</b></label>
+          <textarea id="message" name="message" rows="4" placeholder="Введите запрос..." required></textarea>
+          <button type="submit">Отправить</button>
+          {% if error_message %}<div class="error">{{ error_message }}</div>{% endif %}
+        </form>
+
+        <div class="compare-box" id="compare-box" style="display:none;">
+          <b>Параллельное сравнение (Compare All)</b>
+          <div class="compare-grid">
+            <div class="compare-item" id="compare-sliding"></div>
+            <div class="compare-item" id="compare-facts"></div>
+            <div class="compare-item" id="compare-branching"></div>
+          </div>
+        </div>
+
+        <div class="branches">
+          <b>Branching controls</b>
+          <div class="branches-row">
+            <form method="post" action="/branch/switch">
+              <label for="branch_name"><b>Активная ветка</b></label>
+              <select id="branch_name" name="branch_name">
+                {% for branch in branches %}
+                  <option value="{{ branch }}" {% if branch == active_branch %}selected{% endif %}>{{ branch }}</option>
+                {% endfor %}
+              </select>
+              <button class="secondary" type="submit">Переключить ветку</button>
+            </form>
+            <form method="post" action="/branch/save-checkpoint">
+              <button class="secondary" type="submit">Сохранить checkpoint</button>
+            </form>
+            <form method="post" action="/branch/create-two">
+              <button class="secondary" type="submit">Создать 2 ветки от checkpoint</button>
+            </form>
+          </div>
+          <div class="note">Для Branching: сохрани checkpoint, создай 2 ветки, переключайся и продолжай диалог независимо.</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("chat-form");
+      const chat = document.getElementById("chat");
+      const messageInput = document.getElementById("message");
+      const systemPromptInput = document.getElementById("system_prompt");
+      const strategyInput = document.getElementById("strategy");
+      const strategyLabel = document.getElementById("strategy-label");
+      const compareBox = document.getElementById("compare-box");
+      const compareSlidingEl = document.getElementById("compare-sliding");
+      const compareFactsEl = document.getElementById("compare-facts");
+      const compareBranchingEl = document.getElementById("compare-branching");
+      const factsCountEl = document.getElementById("facts-count");
+      const activeBranchEl = document.getElementById("active-branch");
+      const checkpointEl = document.getElementById("checkpoint");
+      const chartCanvas = document.getElementById("strategies-chart");
+      const chartCtx = chartCanvas.getContext("2d");
+
+      const slidingTotalEl = document.getElementById("sliding-total");
+      const slidingCostEl = document.getElementById("sliding-cost");
+      const factsTotalEl = document.getElementById("facts-total");
+      const factsCostEl = document.getElementById("facts-cost");
+      const branchingTotalEl = document.getElementById("branching-total");
+      const branchingCostEl = document.getElementById("branching-cost");
+
+      let metricsHistory = {{ metrics_history | tojson }};
+      let typingNode = null;
+
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function renderHistory(history) {
+        if (!history || history.length === 0) {
+          chat.innerHTML = '<p class="meta">История пуста. Отправьте первый запрос.</p>';
+          return;
+        }
+        chat.innerHTML = history.map((item) => `<div class="msg ${item.role}">${escapeHtml(item.content)}</div>`).join("");
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function showTyping() {
+        const wrapper = document.createElement("div");
+        wrapper.className = "msg assistant";
+        wrapper.innerHTML = `<span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>`;
+        chat.appendChild(wrapper);
+        typingNode = wrapper;
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function hideTyping() {
+        if (typingNode) {
+          typingNode.remove();
+          typingNode = null;
+        }
+      }
+
+      function updateTotals(modeTotals) {
+        slidingTotalEl.textContent = String(modeTotals.sliding.total_tokens || 0);
+        slidingCostEl.textContent = Number(modeTotals.sliding.total_cost_usd || 0).toFixed(6);
+        factsTotalEl.textContent = String(modeTotals.facts.total_tokens || 0);
+        factsCostEl.textContent = Number(modeTotals.facts.total_cost_usd || 0).toFixed(6);
+        branchingTotalEl.textContent = String(modeTotals.branching.total_tokens || 0);
+        branchingCostEl.textContent = Number(modeTotals.branching.total_cost_usd || 0).toFixed(6);
+      }
+
+      function drawChart() {
+        const width = chartCanvas.width;
+        const height = chartCanvas.height;
+        const left = 42, right = width - 12, top = 12, bottom = height - 30;
+        const plotW = right - left, plotH = bottom - top;
+        chartCtx.clearRect(0, 0, width, height);
+        chartCtx.fillStyle = "#fbfcfe";
+        chartCtx.fillRect(left, top, plotW, plotH);
+        chartCtx.strokeStyle = "#d9dde3";
+        chartCtx.strokeRect(left, top, plotW, plotH);
+
+        if (!metricsHistory || metricsHistory.length === 0) {
+          chartCtx.fillStyle = "#6b7280";
+          chartCtx.font = "12px Arial";
+          chartCtx.fillText("Нет данных для графика", left + 8, top + 18);
+          return;
+        }
+
+        const strategies = ["sliding", "facts", "branching"];
+        const tokenCum = { sliding: [], facts: [], branching: [] };
+        const costCum = { sliding: [], facts: [], branching: [] };
+        const tokenRun = { sliding: 0, facts: 0, branching: 0 };
+        const costRun = { sliding: 0, facts: 0, branching: 0 };
+
+        metricsHistory.forEach((m) => {
+          const s = strategies.includes(m.strategy) ? m.strategy : "sliding";
+          tokenRun[s] += Number(m.total_tokens || 0);
+          costRun[s] += Number(m.turn_cost_usd || 0);
+          strategies.forEach((name) => {
+            tokenCum[name].push(tokenRun[name]);
+            costCum[name].push(costRun[name]);
+          });
+        });
+
+        const maxToken = Math.max(
+          ...tokenCum.sliding,
+          ...tokenCum.facts,
+          ...tokenCum.branching,
+          1
+        );
+        const maxCost = Math.max(
+          ...costCum.sliding,
+          ...costCum.facts,
+          ...costCum.branching,
+          0.000001
+        );
+        const count = metricsHistory.length;
+        const xFor = (i) => left + ((i + 0.5) / count) * plotW;
+        const yToken = (v) => bottom - (v / maxToken) * plotH;
+        const yCost = (v) => bottom - (v / maxCost) * plotH;
+
+        chartCtx.strokeStyle = "#edf1f5";
+        for (let i = 1; i <= 4; i += 1) {
+          const y = top + (i / 5) * plotH;
+          chartCtx.beginPath(); chartCtx.moveTo(left, y); chartCtx.lineTo(right, y); chartCtx.stroke();
+        }
+
+        function draw(values, color, mapper) {
+          chartCtx.strokeStyle = color;
+          chartCtx.lineWidth = 2;
+          chartCtx.beginPath();
+          values.forEach((v, i) => {
+            const x = xFor(i), y = mapper(v);
+            if (i === 0) chartCtx.moveTo(x, y); else chartCtx.lineTo(x, y);
+          });
+          chartCtx.stroke();
+        }
+
+        draw(tokenCum.sliding, "#1f6feb", yToken);
+        draw(tokenCum.facts, "#ef6c00", yToken);
+        draw(tokenCum.branching, "#7b2cbf", yToken);
+        draw(costCum.sliding, "#8cc0ff", yCost);
+        draw(costCum.facts, "#f5bd82", yCost);
+        draw(costCum.branching, "#c5a3ea", yCost);
+
+        chartCtx.fillStyle = "#5f6771";
+        chartCtx.font = "11px Arial";
+        chartCtx.fillText("1", left - 4, bottom + 16);
+        chartCtx.fillText(String(count), right - 8, bottom + 16);
+      }
+
+      async function submitAjax() {
+        const message = messageInput.value.trim();
+        const systemPrompt = systemPromptInput.value.trim();
+        const strategy = strategyInput.value;
+        if (!message) return;
+
+        const optimisticHistory = [];
+        chat.querySelectorAll(".msg").forEach((node) => {
+          const role = node.classList.contains("user") ? "user" : "assistant";
+          optimisticHistory.push({ role, content: node.textContent.trim() });
+        });
+        optimisticHistory.push({ role: "user", content: message });
+        renderHistory(optimisticHistory);
+
+        messageInput.value = "";
+        showTyping();
+
+        const body = new URLSearchParams({
+          message,
+          system_prompt: systemPrompt,
+          strategy,
+        });
+        try {
+          const response = await fetch("/ask-json", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+            body,
+          });
+          const data = await response.json();
+          hideTyping();
+          if (!response.ok || !data.ok) {
+            optimisticHistory.push({ role: "assistant", content: data.error_message || "Не удалось получить ответ." });
+            renderHistory(optimisticHistory);
+            return;
+          }
+          renderHistory(data.history || optimisticHistory);
+          metricsHistory = data.metrics_history || metricsHistory;
+          updateTotals(data.mode_totals || { sliding: {}, facts: {}, branching: {} });
+          factsCountEl.textContent = String(data.facts_count || 0);
+          activeBranchEl.textContent = data.active_branch || "main";
+          checkpointEl.textContent = data.checkpoint == null ? "none" : String(data.checkpoint);
+          const selected = data.selected_strategy || strategy;
+          strategyLabel.textContent = selected;
+          if (selected === "compare_all" && data.compare_answers) {
+            compareBox.style.display = "block";
+            compareSlidingEl.textContent = `Sliding: ${data.compare_answers.sliding || ""}`;
+            compareFactsEl.textContent = `Facts: ${data.compare_answers.facts || ""}`;
+            compareBranchingEl.textContent = `Branching: ${data.compare_answers.branching || ""}`;
+          } else {
+            compareBox.style.display = "none";
+          }
+          drawChart();
+        } catch (err) {
+          hideTyping();
+          optimisticHistory.push({ role: "assistant", content: "Network error: не удалось отправить запрос." });
+          renderHistory(optimisticHistory);
+        }
+      }
+
+      form.addEventListener("submit", (event) => { event.preventDefault(); submitAjax(); });
+      messageInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submitAjax(); }
+      });
+      drawChart();
+    </script>
+  </body>
+</html>

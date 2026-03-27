@@ -20,6 +20,9 @@
 - [ ] Task 4: запустить `task4/task_04_flask_agent_context_compression.py`
 - [ ] Task 4: сравнить качество без сжатия и со сжатием истории
 - [ ] Task 4: сравнить расход токенов/стоимости full vs compressed
+- [ ] Task 5: запустить `task5/task_05_flask_agent_context_strategies.py`
+- [ ] Task 5: прогнать один сценарий на Sliding / Facts / Branching
+- [ ] Task 5: сравнить качество, стабильность, токены и удобство
 - [ ] Зафиксировать вывод и заметки
 
 ## Файлы недели
@@ -46,6 +49,12 @@
 - `task4/chat_history_compressed.json` — история сообщений для режима со сжатием.
 - `task4/metrics_history.json` — метрики токенов/стоимости по режимам.
 - `task4/summary_state.json` — сжатый summary и позиция свертки.
+- `task5/agent.py` — агент, используемый для стратегий без summary.
+- `task5/storage.py` — загрузка/сохранение state и метрик.
+- `task5/task_05_flask_agent_context_strategies.py` — Flask-агент с 3 стратегиями.
+- `task5/templates/index.html` — UI с переключением стратегий и сравнительным графиком.
+- `task5/context_state.json` — состояние стратегий (история, facts, ветки).
+- `task5/metrics_history.json` — метрики токенов/стоимости для сравнения стратегий.
 
 ## Запуск
 
@@ -86,6 +95,16 @@ python3 weeks/week02/task4/task_04_flask_agent_context_compression.py
 После запуска откройте:
 
 - http://127.0.0.1:5003
+
+### Task 5
+
+```bash
+python3 weeks/week02/task5/task_05_flask_agent_context_strategies.py
+```
+
+После запуска откройте:
+
+- http://127.0.0.1:5004
 
 ## Требования к окружению
 
