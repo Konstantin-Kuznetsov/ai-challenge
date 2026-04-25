@@ -38,6 +38,13 @@ class ShortTermStore(
         return 2
     }
 
+    fun appendAssistantMessage(text: String): Int {
+        val current = load().messages.toMutableList()
+        current.add(ChatMessage(role = "assistant", content = text))
+        save(ShortTermState(messages = current))
+        return 1
+    }
+
     fun clear() = save(ShortTermState())
 }
 

@@ -2,4 +2,9 @@
 build/
 **/build/
 *.iml
+.kotlin/
 task1/weeks/
+task3/weeks/
+task3/short_term.json
+task3/working_memory.json
+task3/task_state.json

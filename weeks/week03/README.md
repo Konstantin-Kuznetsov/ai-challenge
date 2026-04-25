@@ -77,6 +77,16 @@ UI:
 ./run-gradle.sh :task1:build
 ```
 
+Task 3 (State Machine):
+
+```bash
+./run-gradle.sh :task3:run
+```
+
+После запуска откройте:
+
+- http://127.0.0.1:6003
+
 ## API task1
 
 - `GET /api/history` — short-term история диалога.
@@ -88,6 +98,17 @@ UI:
 - `POST /api/profiles/select` — выбрать профиль для long-term памяти.
 - `POST /api/memory/classifier-preview` — посмотреть решение классификатора без записи.
 - `POST /api/reset?layer=all|short|working|long` — очистка памяти.
+
+## Task3: Task State Machine
+
+`task3` переиспользует профили и трехслойную память из `task1`, но добавляет формализованное состояние задачи:
+
+- `PLANNING -> EXECUTION`
+- `EXECUTION -> PLANNING | VALIDATION`
+- `VALIDATION -> PLANNING | DONE`
+- `DONE` — терминальное состояние
+
+Дополнительно поддерживается `pause/resume` без потери контекста и системные сообщения о переходах в чате.
 
 ## Диаграмма потока task1
 

@@ -108,6 +108,10 @@ class MemoryLayerService(
         return true
     }
 
+    fun appendSystemMessage(message: String) {
+        shortTermStore.appendAssistantMessage("[SYSTEM] $message")
+    }
+
     private fun filterCandidates(candidates: List<MemoryWriteCandidate>): List<MemoryWriteCandidate> {
         return candidates.filter {
             it.layer == MemoryLayer.WORKING &&
