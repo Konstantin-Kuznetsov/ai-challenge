@@ -1,0 +1,5 @@
+.gradle/
+build/
+**/build/
+*.iml
+task1/weeks/
