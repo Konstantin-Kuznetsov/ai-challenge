@@ -1,0 +1,64 @@
+flowchart TD
+    U[Текущее сообщение пользователя]
+
+    subgraph G_CHAT["1 — short_term: чат"]
+        direction TB
+        N_ST0["ShortTermStore"]
+        N_ST1["load → takeLast(maxMessages)"]
+        N_ST2["shortTermMessagesForPrompt"]
+        N_ST0 --> N_ST1 --> N_ST2
+    end
+
+    subgraph G_WRK["2 — working_memory: задача"]
+        direction TB
+        N_W0["WorkingMemoryStore"]
+        N_W1["goal / constraints / decisions / …"]
+        N_W2["toWorkingBlock → фрагмент system"]
+        N_W0 --> N_W1 --> N_W2
+    end
+
+    subgraph G_LNG["3 — long_term: профиль"]
+        direction TB
+        N_L0["LongTermStore"]
+        N_L1["activeProfileId + поля профиля"]
+        N_L2["toLongTermBlock → фрагмент system"]
+        N_L0 --> N_L1 --> N_L2
+    end
+
+    N_SN["MemoryLayerService.snapshot"]
+    N_SN --> G_CHAT
+    N_SN --> G_WRK
+    N_SN --> G_LNG
+
+    N_BC["MemoryLayerService.buildContext"]
+    N_ST2 --> N_BC
+    N_W2 --> N_BC
+    N_L2 --> N_BC
+
+    N_BP["AgentSettings.systemPrompt (база)"]
+    N_INV["preMemory: инварианты InvariantsStore"]
+    N_MP["mergeSystemPrompt"]
+    N_BP --> N_MP
+    N_INV --> N_MP
+    N_BC --> N_MP
+    N_MP --> N_SYS["mergedSystemPrompt → роль system в API"]
+
+    N_ST2 --> N_MSG["messages: история чата + новый user"]
+    U --> N_MSG
+
+    N_SYS --> N_PV["InvariantTurnGuard.validateLlmRequest"]
+    N_MSG --> N_PV
+    U --> N_PV
+
+    N_PV -->|Pass| N_API["complete: system = mergedSystemPrompt,<br/>далее messages по порядку"]
+    N_PV -->|Fail| N_STOP["LLM не вызывается"]
+
+    classDef memChat fill:#e8edff,stroke:#3b5bdb,stroke-width:2px,color:#0f172a
+    classDef memWork fill:#fef6d8,stroke:#b45309,stroke-width:2px,color:#1c1917
+    classDef memLong fill:#fce7f3,stroke:#be185d,stroke-width:2px,color:#1f2937
+    classDef memNeutral fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a
+
+    class N_ST0,N_ST1,N_ST2 memChat
+    class N_W0,N_W1,N_W2 memWork
+    class N_L0,N_L1,N_L2 memLong
+    class N_SN,N_BC,N_BP,N_INV,N_MP,N_SYS,N_MSG,N_PV,N_API,N_STOP,U memNeutral
