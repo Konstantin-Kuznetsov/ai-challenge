@@ -8,3 +8,8 @@ task3/weeks/
 task3/short_term.json
 task3/working_memory.json
 task3/task_state.json
+task4/short_term.json
+task4/working_memory.json
+task4/metrics_history.json
+task4/invariants.json
+task4/weeks/

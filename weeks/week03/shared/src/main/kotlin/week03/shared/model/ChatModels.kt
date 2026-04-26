@@ -112,6 +112,11 @@ data class AgentTurnResult(
     val reply: AgentReply,
     val memorySnapshot: MemorySnapshot,
     val memoryMetrics: MemoryMetrics,
+    /** Linear FSM trace for one turn (task4 UI); empty for legacy callers. */
+    val pipeline: List<TurnPipelineStep> = emptyList(),
+    /** True if [pipeline] ids follow [TurnPipelineGraph.orderedIds] and only allowed edges. */
+    val graphEdgesValid: Boolean = true,
+    val validation: TurnValidationInfo? = null,
 )
 
 @Serializable
