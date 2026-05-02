@@ -1,0 +1,5 @@
+.gradle/
+.kotlin/
+build/
+task1/build/
+task1/data/

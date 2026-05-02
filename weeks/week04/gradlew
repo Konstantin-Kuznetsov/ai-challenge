@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WEEK03_WRAPPER="$SCRIPT_DIR/../week03/gradlew"
+
+if [[ ! -x "$WEEK03_WRAPPER" ]]; then
+  echo "Gradle wrapper not found at $WEEK03_WRAPPER."
+  exit 1
+fi
+
+exec "$WEEK03_WRAPPER" -p "$SCRIPT_DIR" "$@"
